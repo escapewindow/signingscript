@@ -15,7 +15,10 @@ from signingscript.exceptions import FailedSubprocess, SigningServerError
 log = logging.getLogger(__name__)
 # Mapping between signing client formats and file extensions
 DETACHED_SIGNATURES = [
-    ('gpg', '.asc', 'text/plain')
+    ('gpg', '.asc', 'text/plain'),
+# not text/plain, data
+    ('widevine', '.sig', 'application/binary'),
+    ('widevine-blessed', '.sig', 'application/binary'),
 ]
 
 SigningServer = namedtuple("SigningServer", ["server", "user", "password",

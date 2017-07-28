@@ -32,16 +32,24 @@ _ZIPFILE_SIGNING_FORMATS = frozenset(['sha2signcode', 'signcode', 'osslsigncode'
 _WIDEVINE_SIGNING_FORMATS = ('widevine', 'widevine_blessed')
 # Blessed files call the other widevine files.
 _WIDEVINE_BLESSED_FILENAMES = (
-    "firefox",
-    "firefox-bin",
-    "firefox.exe",
+    # plugin-container is the top of the calling stack
+    "plugin-container",
+    "plugin-container.exe",
 )
 # These are other files that need to be widevine-signed
 _WIDEVINE_NONBLESSED_FILENAMES = (
+    # firefox
+    "firefox",
+    "firefox-bin",
+    "firefox.exe",
+    # xul
     "libxul.so",
-    "plugin-container",
     "XUL",
     "xul.dll",
+    # clearkey for regression testing.
+    "clearkey.dll",
+    "libclearkey.dylib",
+    "libclearkey.so",
 )
 
 
