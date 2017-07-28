@@ -184,9 +184,9 @@ async def test_sign_file(context, mocker, format, signtool, files, filename):
 # _execute_pre_signing_steps {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,expected,formats', ((
-    'foo.dmg', (['foo.tar.gz'], None), ['dmg']
+    'foo.dmg', (['foo.tar.gz'], None), 'dmg'
 ), (
-    'bar.zip', (['bar', 'contents'], noop_sync), ['sha2signcode']
+    'bar.zip', (['bar', 'contents'], noop_sync), 'sha2signcode'
 )))
 async def test_execute_pre_signing_steps(context, mocker, filename, expected, formats):
 
@@ -203,13 +203,13 @@ async def test_execute_pre_signing_steps(context, mocker, filename, expected, fo
 # _execute_post_signing_steps {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('files,orig_file,formats,raises', ((
-    ['target.apk'], 'target.apk', ['jar'], False
+    ['target.apk'], 'target.apk', 'jar', False
 ), (
-    ['setup.exe'], 'setup.exe', ['sha2signcode'], False
+    ['setup.exe'], 'setup.exe', 'sha2signcode', False
 ), (
-    ['zip', 'contents'], 'target.zip', ['sha2signcode'], False
+    ['zip', 'contents'], 'target.zip', 'sha2signcode', False
 ), (
-    ['target.apk', 'target.exe'], 'target.apk', ['jar'], True
+    ['target.apk', 'target.exe'], 'target.apk', 'jar', True
 )))
 async def test_execute_post_signing_steps(context, monkeypatch, files, orig_file, formats, raises):
     work_dir = context.config['work_dir']
