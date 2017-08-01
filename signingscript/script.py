@@ -138,6 +138,7 @@ def main(config_path=None):
         sslcontext = ssl.create_default_context(cafile=context.config['ssl_cert'])
         kwargs['ssl_context'] = sslcontext
     conn = aiohttp.TCPConnector(**kwargs)
+    # XXX staging do not land
     conn = aiohttp.TCPConnector(verify_ssl=False)
     try:
         loop.run_until_complete(async_main(context, conn=conn))

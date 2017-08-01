@@ -380,7 +380,7 @@ async def _create_zipfile(context, to, files, tmp_dir=None):
     work_dir = context.config['work_dir']
     tmp_dir = tmp_dir or os.path.join(work_dir, "unzipped")
     try:
-        log.info("Creating zipfile...")
+        log.info("Creating zipfile {}...".format(to))
         with zipfile.ZipFile(to, mode='w', compression=zipfile.ZIP_DEFLATED) as z:
             for f in files:
                 relpath = os.path.relpath(f, tmp_dir)
@@ -426,7 +426,7 @@ async def _create_tarfile(context, to, files, compression, tmp_dir=None):
     tmp_dir = tmp_dir or os.path.join(work_dir, "untarred")
     compression = _get_tarfile_compression(compression)
     try:
-        log.info("Creating tarfile...")
+        log.info("Creating tarfile {}...".format(to))
         with tarfile.open(to, mode='w:{}'.format(compression)) as t:
             for f in files:
                 relpath = os.path.relpath(f, tmp_dir)
