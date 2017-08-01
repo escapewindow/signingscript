@@ -201,12 +201,12 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
             base_command.extend(["-H", s.server])
         # loop through the files
         for from_ in files:
-            log.info("Signing {}...".format(from_))
             to = from_
             if should_sign_fn is not None:
-                fmt = should_sign_fn(from_)
+                fmt = should_sign_fn(from_, fmt)
             if not fmt:
                 continue
+            log.info("Signing {}...".format(from_))
             base_command.extend(["-f", fmt])
             signing_command = base_command[:]
             signing_command.extend(["-o", to, from_])
@@ -217,7 +217,7 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
 
 
 # _should_sign_windows {{{1
-def _should_sign_windows(filename, format):
+def _should_sign_windows(filename, fmt):
     """Return True if filename should be signed."""
     # These should already be signed by Microsoft.
     _dont_sign = [
@@ -228,20 +228,18 @@ def _should_sign_windows(filename, format):
     ext = os.path.splitext(filename)[1]
     b = os.path.basename(filename)
     if ext in ('.dll', '.exe') and not any(fnmatch.fnmatch(b, p) for p in _dont_sign):
-        return format
+        return fmt
     return False
 
 
 # _should_sign_widevine {{{1
-def _should_sign_widevine(filename, format):
+def _should_sign_widevine(filename, fmt):
     """Return (True, blessed) if filename should be signed."""
     base_filename = os.path.basename(filename)
     if base_filename in _WIDEVINE_BLESSED_FILENAMES:
         return "widevine_blessed"
     elif base_filename in _WIDEVINE_NONBLESSED_FILENAMES:
         return "widevine"
-    else:
-        return False
 
 
 # _execute_pre_signing_steps {{{1
