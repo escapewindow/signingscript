@@ -194,7 +194,7 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
     signed_file = orig_file
     # Loop through the formats and sign one by one.
     for orig_fmt in signing_formats:
-        files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
+        signed_file, files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
         for from_ in files:
             to = from_
             fmt = orig_fmt
@@ -262,21 +262,27 @@ async def _execute_pre_signing_steps(context, from_, fmt):
     if file_extension == '.dmg':
         await _convert_dmg_to_tar_gz(context, from_)
         from_ = "{}.tar.gz".format(file_base)
-    elif file_extension == '.zip' and fmt in _ZIPFILE_SIGNING_FORMATS:
-        return (await _extract_zipfile(context, from_), _should_sign_windows)
+    # XXX staging do not land the next 3 lines
+        file_base, file_extension = os.path.splitext(from_)
+    # elif file_extension == '.zip' and fmt in _ZIPFILE_SIGNING_FORMATS:
+    if file_extension == '.zip' and fmt in _ZIPFILE_SIGNING_FORMATS:
+        return (from_, await _extract_zipfile(context, from_), _should_sign_windows)
     elif fmt in _WIDEVINE_SIGNING_FORMATS:
         if file_base.endswith('.tar'):
             return (
-                await _extract_tarfile(context, from_, compression=file_extension),
+                from_,
+                await _extract_tarfile(
+                    context, from_, compression=file_extension
+                ),
                 _should_sign_widevine
             )
         elif file_extension == '.zip':
-            return (await _extract_zipfile(context, from_), _should_sign_widevine)
+            return (from_, await _extract_zipfile(context, from_), _should_sign_widevine)
         else:
             # we should never hit this
             raise SigningScriptError("Unknown file suffix for widevine signing: {}".format(from_))
 
-    return ([from_], callback)
+    return (from_, [from_], callback)
 
 
 # _execute_post_signing_steps {{{1
@@ -347,7 +353,6 @@ async def _convert_dmg_to_tar_gz(context, from_):
     with tempfile.TemporaryDirectory() as temp_dir:
         app_dir = os.path.join(temp_dir, "app")
         utils.mkdir(app_dir)
-        temp_dir = os.path.join(os.getcwd(), "tmp")
         undmg_cmd = [dmg_executable_location, "extract", abs_from, "tmp.hfs"]
         await utils._execute_subprocess(undmg_cmd, cwd=temp_dir)
         hfsplus_cmd = [hfsplus_executable_location, "tmp.hfs", "extractall", "/", app_dir]
