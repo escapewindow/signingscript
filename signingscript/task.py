@@ -203,12 +203,14 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
                 fmt = should_sign_fn(from_, orig_fmt)
             if not fmt:
                 continue
-#            # widevine has a detached sig for the inner files, but not for the
-#            # final file, so we can't use DETACHED_SIGNATURES here
-#            elif fmt in ("widevine", "widevine_blessed"):
-#                to = "{}.sig".format(from_)
-#            else:
-#                to = from_
+            # widevine has a detached sig for the inner files, but not for the
+            # final file, so we can't use DETACHED_SIGNATURES here
+            elif fmt in ("widevine", "widevine_blessed"):
+                to = "{}.sig".format(from_)
+                if to not in files:
+                    files.append(to)
+            else:
+                to = from_
             log.info("Signing {}...".format(from_))
             base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
             for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
@@ -378,6 +380,7 @@ async def _create_zipfile(context, to, files, tmp_dir=None):
     work_dir = context.config['work_dir']
     tmp_dir = tmp_dir or os.path.join(work_dir, "unzipped")
     try:
+        log.info("Creating zipfile...")
         with zipfile.ZipFile(to, mode='w', compression=zipfile.ZIP_DEFLATED) as z:
             for f in files:
                 relpath = os.path.relpath(f, tmp_dir)
@@ -423,6 +426,7 @@ async def _create_tarfile(context, to, files, compression, tmp_dir=None):
     tmp_dir = tmp_dir or os.path.join(work_dir, "untarred")
     compression = _get_tarfile_compression(compression)
     try:
+        log.info("Creating tarfile...")
         with tarfile.open(to, mode='w:{}'.format(compression)) as t:
             for f in files:
                 relpath = os.path.relpath(f, tmp_dir)
