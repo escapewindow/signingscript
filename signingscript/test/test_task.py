@@ -184,9 +184,9 @@ async def test_sign_file(context, mocker, format, signtool, files, filename):
 # _execute_pre_signing_steps {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,expected,formats', ((
-    'foo.dmg', (['foo.tar.gz'], None), 'dmg'
+    'foo.dmg', ('foo.tar.gz', ['foo.tar.gz'], None), 'dmg'
 ), (
-    'bar.zip', (['bar', 'contents'], noop_sync), 'sha2signcode'
+    'bar.zip', ('bar.zip', ['bar', 'contents'], noop_sync), 'sha2signcode'
 )))
 async def test_execute_pre_signing_steps(context, mocker, filename, expected, formats):
 
