@@ -16,8 +16,6 @@ log = logging.getLogger(__name__)
 # Mapping between signing client formats and file extensions
 DETACHED_SIGNATURES = [
     ('gpg', '.asc', 'text/plain'),
-    ('widevine', '.sig', 'application/binary'),
-    ('widevine-blessed', '.sig', 'application/binary'),
 ]
 
 SigningServer = namedtuple("SigningServer", ["server", "user", "password",
