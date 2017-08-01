@@ -151,14 +151,16 @@ async def test_get_token(mocker, tmpdir, exc, contents, context):
 
 # sign_file {{{1
 @pytest.mark.asyncio
-@pytest.mark.parametrize('signtool,format,files,filename', ((
-    'signtool', 'gpg', ['filename'], 'filename'
+@pytest.mark.parametrize('signtool,format,files,filename,post_files', ((
+    'signtool', 'gpg', ['filename'], 'filename', None
 ), (
-    ['signtool'], 'sha2signcode', ['filename.dll', 'filename.foo'], 'file.zip'
+    ['signtool'], 'sha2signcode', ['filename.dll', 'filename.foo'], 'file.zip', None
 )))
 async def test_sign_file(context, mocker, format, signtool, files, filename):
     work_dir = context.config['work_dir']
     path = files[0]
+    if post_files is None:
+        post_files = files
 
     async def test_cmdln(command):
         assert command == [
@@ -174,10 +176,14 @@ async def test_sign_file(context, mocker, format, signtool, files, filename):
     async def fake_unzip(context, *args, **kwargs):
         return files
 
+    def fake_rezip(context, new_files, *args):
+        assert new_files == post_files
+
     context.config['signtool'] = signtool
-    mocker.patch.object(stask, '_execute_post_signing_steps', new=noop_async)
+    mocker.patch.object(stask, '_execute_post_signing_steps', new=fake_rezip)
     mocker.patch.object(utils, '_execute_subprocess', new=test_cmdln)
     mocker.patch.object(stask, '_extract_zipfile', new=fake_unzip)
+    mocker.patch.object(stask, '_extract_tarfile', new=fake_unzip)
     await stask.sign_file(context, filename, TEST_CERT_TYPE, [format], context.config['ssl_cert'])
 
 
@@ -353,18 +359,6 @@ async def test_bad_extract_zipfile(context, mocker):
     mocker.patch.object(stask, 'rm', new=die)
     with pytest.raises(SigningScriptError):
         await stask._extract_zipfile(context, "foo.zip")
-
-
-# detached_sigfiles {{{1
-@pytest.mark.parametrize('formats,expected', ((
-    ['mar', 'jar', 'emevoucher'], []
-), (
-    ['mar', 'jar', 'gpg'], ['foo.asc']
-), (
-    ['gpg'], ['foo.asc']
-)))
-def test_detached_sigfiles(formats, expected):
-    assert stask.detached_sigfiles("foo", formats) == expected
 
 
 # build_filelist_dict {{{1

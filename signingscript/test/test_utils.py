@@ -71,18 +71,6 @@ def test_load_signing_server_config():
     assert cfg["notdep"][1].formats == ["f2", "f3"]
 
 
-# get_detached_signatures {{{1
-@pytest.mark.parametrize('formats,expected', ((
-    ['mar', 'gpg', 'pgp'], [("gpg", ".asc", "text/plain")],
-), (
-    ['gpg'], [("gpg", ".asc", "text/plain")],
-), (
-    ['mar', 'pgp'], [],
-)))
-def test_detached_signatures(formats, expected):
-    assert utils.get_detached_signatures(formats) == expected
-
-
 # log_output {{{1
 @pytest.mark.asyncio
 async def test_log_output(tmpdir, mocker):

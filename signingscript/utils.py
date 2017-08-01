@@ -13,10 +13,6 @@ from collections import namedtuple
 from signingscript.exceptions import FailedSubprocess, SigningServerError
 
 log = logging.getLogger(__name__)
-# Mapping between signing client formats and file extensions
-DETACHED_SIGNATURES = [
-    ('gpg', '.asc', 'text/plain'),
-]
 
 SigningServer = namedtuple("SigningServer", ["server", "user", "password",
                                              "formats"])
@@ -89,22 +85,6 @@ def load_signing_server_config(context):
         cfg[signing_type] = [SigningServer(*s) for s in server_data]
     log.info("Signing server config loaded from {}".format(path))
     return cfg
-
-
-def get_detached_signatures(signing_formats):
-    """Get a list of tuples with detached signature info given the signing formats.
-
-    This is currently only applicable for gpg signing.
-
-    Args:
-        signing_formats (list): the list of signing formats
-
-    Returns:
-        list of tuples: the tuple contains signing format, extension, and mime type.
-
-    """
-    return [(sig_type, sig_ext, sig_mime) for sig_type, sig_ext, sig_mime in
-            DETACHED_SIGNATURES if sig_type in signing_formats]
 
 
 async def log_output(fh):

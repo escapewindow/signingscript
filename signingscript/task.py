@@ -2,6 +2,7 @@
 """Signingscript task functions."""
 import aiohttp
 import fnmatch
+from frozendict import frozendict
 import json
 import logging
 import os
@@ -51,6 +52,19 @@ _WIDEVINE_NONBLESSED_FILENAMES = (
     "libclearkey.dylib",
     "libclearkey.so",
 )
+
+FORMAT_TO_SIGNING_FUNCTION = frozendict({
+    "gpg": sign_gpg,
+    "jar": sign_jar,
+    "macapp": sign_macapp,
+    "osslsigncode": sign_signcode,
+    "sha2signcode": sign_signcode,
+    "sha2signcodestub": sign_signcode,  # XXX do we need this?
+    "signcode": sign_signcode,
+    "widevine": sign_widevine,
+    "widevine_blessed": sign_widevine,
+    "default": sign_generic,
+})
 
 
 # task_cert_type {{{1
@@ -169,7 +183,7 @@ async def get_token(context, output_file, cert_type, signing_formats):
 
 
 # sign_file {{{1
-async def sign_file(context, orig_file, cert_type, signing_formats, cert):
+async def sign_file(context, orig_file, signing_formats):
     """Send a file to the signing server to sign, then retrieve the signed file.
 
     In post-signing steps, zipalign apks if applicable.
@@ -186,42 +200,90 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
 
     """
     work_dir = context.config['work_dir']
+    signed_file = orig_file
+    # Loop through the formats and sign one by one.
+    for fmt in signing_formats:
+        func = FORMAT_TO_SIGNING_FUNCTION.get(
+            fmt, FORMAT_TO_SIGNING_FUNCTION['default']
+        )
+        signed_file = await func(context, signed_file, fmt)
+#        signed_file, files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
+#        for from_ in files:
+#            to = from_
+#            fmt = orig_fmt
+#            # build the base command
+#            if should_sign_fn is not None:
+#                fmt = should_sign_fn(from_, orig_fmt)
+#            if not fmt:
+#                continue
+#            elif fmt in ("widevine", "widevine_blessed"):
+#                to = "{}.sig".format(from_)
+#                if to not in files:
+#                    files.append(to)
+#            else:
+#                to = from_
+#            log.info("Signing {}...".format(from_))
+#            await utils._execute_subprocess(signing_command)
+#        log.info('Finished signing {}. Starting post-signing steps...'.format(orig_fmt))
+#        signed_file = await _execute_post_signing_steps(context, files, signed_file, orig_fmt)
+    return signed_file
+
+
+def build_signtool_cmd(context, from_, fmt, to=None):
+    """
+    """
+    to = to or from_
     token = os.path.join(work_dir, "token")
     nonce = os.path.join(work_dir, "nonce")
+    cert_type = task_cert_type(context.task)
+    ssl_cert = context.config['cert']
     signtool = context.config['signtool']
     if not isinstance(signtool, (list, tuple)):
         signtool = [signtool]
-    signed_file = orig_file
-    # Loop through the formats and sign one by one.
-    for orig_fmt in signing_formats:
-        signed_file, files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
-        for from_ in files:
-            to = from_
-            fmt = orig_fmt
-            # build the base command
-            if should_sign_fn is not None:
-                fmt = should_sign_fn(from_, orig_fmt)
-            if not fmt:
-                continue
-            # widevine has a detached sig for the inner files, but not for the
-            # final file, so we can't use DETACHED_SIGNATURES here
-            elif fmt in ("widevine", "widevine_blessed"):
-                to = "{}.sig".format(from_)
-                if to not in files:
-                    files.append(to)
-            else:
-                to = from_
-            log.info("Signing {}...".format(from_))
-            base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
-            for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
-                base_command.extend(["-H", s.server])
-            base_command.extend(["-f", fmt])
-            signing_command = base_command[:]
-            signing_command.extend(["-o", to, from_])
-            await utils._execute_subprocess(signing_command)
-        log.info('Finished signing {}. Starting post-signing steps...'.format(orig_fmt))
-        signed_file = await _execute_post_signing_steps(context, files, signed_file, orig_fmt)
-    return signed_file
+    cmd = signtool + ["-v", "-n", nonce, "-t", token, "-c", ssl_cert]
+    for s in get_suitable_signing_servers(
+        context.signing_servers, cert_type, [fmt]
+    ):
+         cmd.extend(["-H", s.server])
+    cmd.extend(["-f", fmt])
+    cmd.extend(["-o", to, from_])
+    return cmd
+
+
+async def sign_generic(context, path, fmt):
+    """
+    """
+    return [path]
+
+
+async def sign_gpg(context, path, fmt):
+    """
+    """
+    return [path, "{}.asc".format(path)]
+
+
+async def sign_jar(context, path, fmt):
+    """
+    """
+    return [path]
+
+
+async def sign_macapp(context, path, fmt):
+    """
+    """
+    return [path]
+
+
+async def sign_signcode(context, path, fmt):
+    """
+    """
+    return [path]
+
+
+async def sign_widevine(context, path, fmt):
+    """
+    """
+    return [path]
 
 
 # _should_sign_windows {{{1
@@ -439,29 +501,6 @@ async def _create_tarfile(context, to, files, compression, tmp_dir=None):
         return to
     except Exception as e:
         raise SigningScriptError(e)
-
-
-# detached_sigfiles {{{1
-def detached_sigfiles(filepath, signing_formats):
-    """Get a list of detached sigfile paths, if any, given a file path and signing formats.
-
-    This will generally be an empty list unless we're gpg signing, in which case
-    we'll have detached gpg signatures.
-
-    Args:
-        filepath (str): the path of the file to sign
-        signing_formats (str): the signing formats the file will be signed with
-
-    Returns:
-        list: the list of paths of any detached signatures.
-
-    """
-    detached_signatures = []
-    for sig_type, sig_ext, sig_mime in utils.get_detached_signatures(signing_formats):
-        detached_filepath = "{filepath}{ext}".format(filepath=filepath,
-                                                     ext=sig_ext)
-        detached_signatures.append(detached_filepath)
-    return detached_signatures
 
 
 # _sort_formats {{{1
