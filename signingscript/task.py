@@ -199,13 +199,15 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
         base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
         for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
             base_command.extend(["-H", s.server])
-        base_command.extend(["-f", fmt])
         # loop through the files
         for from_ in files:
             log.info("Signing {}...".format(from_))
             to = from_
-            if should_sign_fn is not None and not should_sign_fn(from_):
+            if should_sign_fn is not None:
+                fmt = should_sign_fn(from_)
+            if not fmt:
                 continue
+            base_command.extend(["-f", fmt])
             signing_command = base_command[:]
             signing_command.extend(["-o", to, from_])
             await utils._execute_subprocess(signing_command)
@@ -215,7 +217,7 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
 
 
 # _should_sign_windows {{{1
-def _should_sign_windows(filename):
+def _should_sign_windows(filename, format):
     """Return True if filename should be signed."""
     # These should already be signed by Microsoft.
     _dont_sign = [
@@ -226,20 +228,20 @@ def _should_sign_windows(filename):
     ext = os.path.splitext(filename)[1]
     b = os.path.basename(filename)
     if ext in ('.dll', '.exe') and not any(fnmatch.fnmatch(b, p) for p in _dont_sign):
-        return True
+        return format
     return False
 
 
 # _should_sign_widevine {{{1
-def _should_sign_widevine(filename):
+def _should_sign_widevine(filename, format):
     """Return (True, blessed) if filename should be signed."""
     base_filename = os.path.basename(filename)
     if base_filename in _WIDEVINE_BLESSED_FILENAMES:
-        return (True, True)
+        return "widevine_blessed"
     elif base_filename in _WIDEVINE_NONBLESSED_FILENAMES:
-        return (True, False)
+        return "widevine"
     else:
-        return (False, False)
+        return False
 
 
 # _execute_pre_signing_steps {{{1
