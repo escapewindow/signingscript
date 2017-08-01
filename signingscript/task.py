@@ -401,9 +401,11 @@ async def _extract_tarfile(context, from_, compression, tmp_dir=None):
         rm(tmp_dir)
         utils.mkdir(tmp_dir)
         with tarfile.open(from_, mode='r:{}'.format(compression)) as t:
-            for name in t.getnames():
-                files.append(os.path.join(tmp_dir, name))
             t.extractall(path=tmp_dir)
+            for name in t.getnames():
+                path = os.path.join(tmp_dir, name)
+                if os.path.isfile(path):
+                    files.append(path)
         return files
     except Exception as e:
         raise SigningScriptError(e)
