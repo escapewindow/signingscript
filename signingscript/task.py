@@ -193,15 +193,22 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
         signtool = [signtool]
     signed_file = orig_file
     # Loop through the formats and sign one by one.
-    for fmt in signing_formats:
-        files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, fmt)
+    for orig_fmt in signing_formats:
+        files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
         for from_ in files:
-            # build the base command
             to = from_
+            fmt = orig_fmt
+            # build the base command
             if should_sign_fn is not None:
-                fmt = should_sign_fn(from_, fmt)
+                fmt = should_sign_fn(from_, orig_fmt)
             if not fmt:
                 continue
+#            # widevine has a detached sig for the inner files, but not for the
+#            # final file, so we can't use DETACHED_SIGNATURES here
+#            elif fmt in ("widevine", "widevine_blessed"):
+#                to = "{}.sig".format(from_)
+#            else:
+#                to = from_
             log.info("Signing {}...".format(from_))
             base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
             for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
@@ -210,8 +217,8 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
             signing_command = base_command[:]
             signing_command.extend(["-o", to, from_])
             await utils._execute_subprocess(signing_command)
-        log.info('Finished signing {}. Starting post-signing steps...'.format(fmt))
-        signed_file = await _execute_post_signing_steps(context, files, signed_file, signing_formats)
+        log.info('Finished signing {}. Starting post-signing steps...'.format(orig_fmt))
+        signed_file = await _execute_post_signing_steps(context, files, signed_file, orig_fmt)
     return signed_file
 
 
