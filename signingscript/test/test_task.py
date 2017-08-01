@@ -181,6 +181,19 @@ async def test_sign_file(context, mocker, format, signtool, files, filename):
     await stask.sign_file(context, filename, TEST_CERT_TYPE, [format], context.config['ssl_cert'])
 
 
+# _should_sign_widevine {{{1
+@pytest.mark.parametrize('filenames,expected', ((
+    ('firefox', 'XUL', 'libclearkey.dylib'), 'widevine',
+), (
+    ('plugin-container', 'plugin-container.exe'), 'widevine_blessed',
+), (
+    ('firefox.dll', 'XUL.so', 'firefox.bin'), None
+)))
+def test_should_sign_widevine(filenames, expected):
+    for f in filenames:
+        assert stask._should_sign_widevine(f, 'widevine') == expected
+
+
 # _execute_pre_signing_steps {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,expected,formats,raises', ((
