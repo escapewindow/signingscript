@@ -195,18 +195,17 @@ async def sign_file(context, orig_file, cert_type, signing_formats, cert):
     # Loop through the formats and sign one by one.
     for fmt in signing_formats:
         files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, fmt)
-        # build the base command
-        base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
-        for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
-            base_command.extend(["-H", s.server])
-        # loop through the files
         for from_ in files:
+            # build the base command
             to = from_
             if should_sign_fn is not None:
                 fmt = should_sign_fn(from_, fmt)
             if not fmt:
                 continue
             log.info("Signing {}...".format(from_))
+            base_command = signtool + ["-v", "-n", nonce, "-t", token, "-c", cert]
+            for s in get_suitable_signing_servers(context.signing_servers, cert_type, [fmt]):
+                base_command.extend(["-H", s.server])
             base_command.extend(["-f", fmt])
             signing_command = base_command[:]
             signing_command.extend(["-o", to, from_])
