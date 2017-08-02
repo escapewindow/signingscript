@@ -101,7 +101,7 @@ def build_signtool_cmd(context, from_, fmt, to=None):
     token = os.path.join(work_dir, "token")
     nonce = os.path.join(work_dir, "nonce")
     cert_type = task_cert_type(context.task)
-    ssl_cert = context.config['cert']
+    ssl_cert = context.config['ssl_cert']
     signtool = context.config['signtool']
     if not isinstance(signtool, (list, tuple)):
         signtool = [signtool]
@@ -287,7 +287,7 @@ def _should_sign_windows(filename):
 
 
 # _should_sign_widevine {{{1
-def _should_sign_widevine(filename, fmt):
+def _should_sign_widevine(filename):
     """Return (True, blessed) if filename should be signed."""
     base_filename = os.path.basename(filename)
     if base_filename in _WIDEVINE_BLESSED_FILENAMES:
@@ -412,8 +412,7 @@ async def _extract_tarfile(context, from_, compression, tmp_dir=None):
             t.extractall(path=tmp_dir)
             for name in t.getnames():
                 path = os.path.join(tmp_dir, name)
-                if os.path.isfile(path):
-                    files.append(path)
+                os.path.isfile(path) and files.append(path)
         return files
     except Exception as e:
         raise SigningScriptError(e)

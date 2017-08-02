@@ -11,6 +11,7 @@ from signingscript.exceptions import SigningScriptError
 from signingscript.script import get_default_config
 from signingscript.utils import get_hash, load_signing_server_config, mkdir, SigningServer
 import signingscript.sign as sign
+import signingscript.utils as utils
 from signingscript.test import tmpdir, die
 
 assert tmpdir  # silence flake8
@@ -67,6 +68,7 @@ async def helper_archive(context, filename, create_fn, extract_fn, *kwargs):
     tmpdir = context.config['artifact_dir']
     archive = os.path.join(context.config['work_dir'], filename)
     mkdir(context.config['work_dir'])
+    # Add a directory to tickle the tarfile isfile() call
     files = [__file__, SERVER_CONFIG_PATH]
     await create_fn(
         context, archive, [__file__, SERVER_CONFIG_PATH], *kwargs,
@@ -158,6 +160,25 @@ def test_should_sign_widevine(filenames, expected):
         assert sign._should_sign_widevine(f, 'widevine') == expected
 
 
+# log_shas {{{1
+def test_log_shas(context, mocker):
+    files = [
+        os.path.join(context.config['work_dir'], "foo"),
+        os.path.join(context.config['work_dir'], "bar"),
+    ]
+
+    def fake_hash(path, alg):
+        return alg
+
+    def fake_log(msg, hash_, rel):
+        assert hash_ in ("sha512", "sha1")
+        assert rel in ("foo", "bar")
+
+    mocker.patch.object(utils, 'get_hash', new=fake_hash)
+    mocker.patch.object(sign.log, 'info', new=fake_log)
+    sign.log_shas(context, files)
+
+
 # zip_align_apk {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('is_verbose', (True, False))
@@ -208,7 +229,7 @@ async def test_convert_dmg_to_tar_gz(context, monkeypatch, tmpdir):
     await sign._convert_dmg_to_tar_gz(context, dmg_path)
 
 
-# _extract_zipfile _create_zipfile{{{1
+# _extract_zipfile _create_zipfile {{{1
 @pytest.mark.asyncio
 async def test_working_zipfile(context):
     await helper_archive(
