@@ -93,11 +93,31 @@ def test_get_suitable_signing_servers(context, formats, expected):
 
 
 # build_signtool_cmd {{{1
-@pytest.mark.parametrize('signtool,from_,to', ((
+@pytest.mark.parametrize('signtool,from_,to,fmt', ((
+    "signtool", "blah", "blah", "gpg"
+), (
+    ["signtool"], "blah", "blah", "sha2signcode"
 )))
-def test_build_signtool_cmd(context, signtool, from_, to):
-    # XXX TODO
-    pass
+def test_build_signtool_cmd(context, signtool, from_, to, fmt):
+    context.config['signtool'] = signtool
+    context.task = {
+        "scopes": [
+            "project:releng:signing:cert:dep-signing",
+            "project:releng:signing:format:gpg",
+            "project:releng:signing:format:sha2signcode",
+        ],
+    }
+    context.config['cert'] = 'cert'
+    work_dir = context.config['work_dir']
+    assert sign.build_signtool_cmd(context, from_, fmt, to=to) == [
+        'signtool', "-v",
+        "-n", os.path.join(work_dir, "nonce"),
+        "-t", os.path.join(work_dir, "token"),
+        "-c", 'cert',
+        "-H", "127.0.0.1:9110",
+        "-f", fmt,
+        "-o", to, from_,
+    ]
 
 
 # _should_sign_widevine {{{1

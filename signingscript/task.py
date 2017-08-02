@@ -1,5 +1,12 @@
 #!/usr/bin/env python
-"""Signingscript task functions."""
+"""Signingscript task functions.
+
+Attributes:
+    FORMAT_TO_SIGNING_FUNCTION (frozendict): a mapping between signing format
+        and signing function. If not specified, use the `default` signing
+        function.
+
+"""
 import aiohttp
 from frozendict import frozendict
 import json
