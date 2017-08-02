@@ -94,6 +94,7 @@ def build_signtool_cmd(context, from_, fmt, to=None):
 
     Returns:
         list: the signtool command to run.
+
     """
     to = to or from_
     work_dir = context.config['work_dir']

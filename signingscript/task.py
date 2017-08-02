@@ -121,36 +121,20 @@ async def sign(context, path, signing_formats):
             there are detached sigfiles.
 
     """
-    signed_file = path
+    output = path
     # Loop through the formats and sign one by one.
     for fmt in signing_formats:
         func = FORMAT_TO_SIGNING_FUNCTION.get(
             fmt, FORMAT_TO_SIGNING_FUNCTION['default']
         )
-        signed_file = await func(context, signed_file, fmt)
-#        signed_file, files, should_sign_fn = await _execute_pre_signing_steps(context, signed_file, orig_fmt)
-#        for from_ in files:
-#            to = from_
-#            fmt = orig_fmt
-#            # build the base command
-#            if should_sign_fn is not None:
-#                fmt = should_sign_fn(from_, orig_fmt)
-#            if not fmt:
-#                continue
-#            elif fmt in ("widevine", "widevine_blessed"):
-#                to = "{}.sig".format(from_)
-#                if to not in files:
-#                    files.append(to)
-#            else:
-#                to = from_
-#            log.info("Signing {}...".format(from_))
-#            await utils.execute_subprocess(signing_command)
-#        log.info('Finished signing {}. Starting post-signing steps...'.format(orig_fmt))
-#        signed_file = await _execute_post_signing_steps(context, files, signed_file, orig_fmt)
-    if not isinstance(signed_file, (tuple, list)):
-        signed_file = [signed_file]
-    log_shas(context, signed_file)
-    return signed_file
+        log.info("Signing {} with {}...".format(output, fmt))
+        output = await func(context, output, fmt)
+    # We want to return a list
+    if not isinstance(output, (tuple, list)):
+        output = [output]
+    # Log the shas of each output file
+    log_shas(context, output)
+    return output
 
 
 # _sort_formats {{{1

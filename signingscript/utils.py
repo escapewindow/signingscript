@@ -132,7 +132,15 @@ def copy_to_dir(source, parent_dir, target=None):
 
 
 async def execute_subprocess(command, **kwargs):
-    """
+    """Execute a command in a subprocess.
+
+    Args:
+        command (list): the command to run
+        **kwargs: the kwargs to pass to subprocess
+
+    Raises:
+        FailedSubprocess: on failure
+
     """
     message = 'Running "{}"'.format(' '.join(command))
     if 'cwd' in kwargs:
