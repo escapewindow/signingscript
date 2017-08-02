@@ -1,19 +1,15 @@
 import aiohttp
-from contextlib import contextmanager
 import os
 import pytest
-import zipfile
 
 from scriptworker.context import Context
 from scriptworker.exceptions import ScriptWorkerTaskException
-from scriptworker.utils import rm
 
-from signingscript.exceptions import FailedSubprocess, SigningScriptError, SigningServerError, TaskVerificationError
+from signingscript.exceptions import SigningServerError, TaskVerificationError
 from signingscript.script import get_default_config
-from signingscript.utils import get_hash, load_signing_server_config, mkdir, SigningServer
+from signingscript.utils import load_signing_server_config, mkdir
 import signingscript.task as stask
-import signingscript.utils as utils
-from signingscript.test import noop_async, noop_sync, tmpdir
+from signingscript.test import noop_sync, tmpdir
 
 assert tmpdir  # silence flake8
 
@@ -58,10 +54,6 @@ def context(tmpdir):
     context.config['artifact_dir'] = os.path.join(tmpdir, 'artifact')
     context.signing_servers = load_signing_server_config(context)
     yield context
-
-
-def die(*args, **kwargs):
-    raise SigningScriptError("dying!")
 
 
 # task_signing_formats {{{1
@@ -122,7 +114,6 @@ async def test_get_token(mocker, tmpdir, exc, contents, context):
     'sha2signcode', 'file.zip', ['file.zip']
 )))
 async def test_sign(context, mocker, format, filename, post_files):
-    work_dir = context.config['work_dir']
 
     async def fake_gpg(_, path, *kwargs):
         return [path, "{}.asc".format(path)]
