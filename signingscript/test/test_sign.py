@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import os
 import pytest
+import tarfile
 import zipfile
 
 from scriptworker.context import Context
@@ -55,6 +56,30 @@ def context(tmpdir):
     context.config['artifact_dir'] = os.path.join(tmpdir, 'artifact')
     context.signing_servers = load_signing_server_config(context)
     yield context
+
+
+@contextmanager
+def context_die(*args, **kwargs):
+    raise SigningScriptError("dying")
+
+
+async def helper_archive(context, filename, create_fn, extract_fn, *kwargs):
+    tmpdir = context.config['artifact_dir']
+    archive = os.path.join(context.config['work_dir'], filename)
+    mkdir(context.config['work_dir'])
+    files = [__file__, SERVER_CONFIG_PATH]
+    await create_fn(
+        context, archive, [__file__, SERVER_CONFIG_PATH], *kwargs,
+        tmp_dir=BASE_DIR
+    )
+    await extract_fn(context, archive, *kwargs, tmp_dir=tmpdir)
+    for path in files:
+        target_path = os.path.join(tmpdir, os.path.relpath(path, BASE_DIR))
+        assert os.path.exists(target_path)
+        assert os.path.isfile(target_path)
+        hash1 = get_hash(path)
+        hash2 = get_hash(target_path)
+        assert hash1 == hash2
 
 
 # task_cert_type {{{1
@@ -186,28 +211,13 @@ async def test_convert_dmg_to_tar_gz(context, monkeypatch, tmpdir):
 # _extract_zipfile _create_zipfile{{{1
 @pytest.mark.asyncio
 async def test_working_zipfile(context):
-    tmpdir = context.config['artifact_dir']
-    zip_ = os.path.join(context.config['work_dir'], "foo.zip")
-    mkdir(context.config['work_dir'])
-    files = [__file__, SERVER_CONFIG_PATH]
-    await sign._create_zipfile(context, zip_, [__file__, SERVER_CONFIG_PATH], BASE_DIR)
-    await sign._extract_zipfile(context, zip_, tmp_dir=tmpdir)
-    for path in files:
-        target_path = os.path.join(tmpdir, os.path.relpath(path, BASE_DIR))
-        assert os.path.exists(target_path)
-        assert os.path.isfile(target_path)
-        hash1 = get_hash(path)
-        hash2 = get_hash(target_path)
-        assert hash1 == hash2
+    await helper_archive(
+        context, "foo.zip", sign._create_zipfile, sign._extract_zipfile
+    )
 
 
 @pytest.mark.asyncio
 async def test_bad_create_zipfile(context, mocker):
-
-    @contextmanager
-    def context_die(*args, **kwargs):
-        raise SigningScriptError("dying")
-
     mocker.patch.object(zipfile, 'ZipFile', new=context_die)
     with pytest.raises(SigningScriptError):
         await sign._create_zipfile(context, "foo.zip", [])
@@ -218,3 +228,40 @@ async def test_bad_extract_zipfile(context, mocker):
     mocker.patch.object(sign, 'rm', new=die)
     with pytest.raises(SigningScriptError):
         await sign._extract_zipfile(context, "foo.zip")
+
+
+# tarfile {{{1
+@pytest.mark.parametrize("compression,expected,raises", ((
+    ".gz", "gz", False
+), (
+    "bz2", "bz2", False
+), (
+    "superstrong_compression!!!", None, True
+)))
+def test_get_tarfile_compression(compression, expected, raises):
+    if raises:
+        with pytest.raises(SigningScriptError):
+            sign._get_tarfile_compression(compression)
+    else:
+        assert sign._get_tarfile_compression(compression) == expected
+
+
+@pytest.mark.asyncio
+async def test_working_tarfile(context):
+    await helper_archive(
+        context, "foo.tar.gz", sign._create_tarfile, sign._extract_tarfile, "gz"
+    )
+
+
+@pytest.mark.asyncio
+async def test_bad_create_tarfile(context, mocker):
+    mocker.patch.object(tarfile, 'open', new=context_die)
+    with pytest.raises(SigningScriptError):
+        await sign._create_tarfile(context, "foo.tar.gz", [], ".bz2")
+
+
+@pytest.mark.asyncio
+async def test_bad_extract_tarfile(context, mocker):
+    mocker.patch.object(tarfile, 'open', new=context_die)
+    with pytest.raises(SigningScriptError):
+        await sign._extract_tarfile(context, "foo.tar.gz", "gz")
