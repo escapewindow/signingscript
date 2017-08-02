@@ -156,7 +156,7 @@ async def test_get_token(mocker, tmpdir, exc, contents, context):
 ), (
     ['signtool'], 'sha2signcode', ['filename.dll', 'filename.foo'], 'file.zip', None
 )))
-async def test_sign_file(context, mocker, format, signtool, files, filename):
+async def test_sign_file(context, mocker, format, signtool, files, filename, post_files):
     work_dir = context.config['work_dir']
     path = files[0]
     if post_files is None:
@@ -181,7 +181,7 @@ async def test_sign_file(context, mocker, format, signtool, files, filename):
 
     context.config['signtool'] = signtool
     mocker.patch.object(stask, '_execute_post_signing_steps', new=fake_rezip)
-    mocker.patch.object(utils, '_execute_subprocess', new=test_cmdln)
+    mocker.patch.object(utils, 'execute_subprocess', new=test_cmdln)
     mocker.patch.object(stask, '_extract_zipfile', new=fake_unzip)
     mocker.patch.object(stask, '_extract_tarfile', new=fake_unzip)
     await stask.sign_file(context, filename, TEST_CERT_TYPE, [format], context.config['ssl_cert'])
@@ -293,7 +293,7 @@ async def test_zip_align_apk(context, monkeypatch, is_verbose):
     def shutil_mock(_, destination):
         assert destination == abs_to
 
-    monkeypatch.setattr('signingscript.utils._execute_subprocess', execute_subprocess_mock)
+    monkeypatch.setattr('signingscript.utils.execute_subprocess', execute_subprocess_mock)
     monkeypatch.setattr('shutil.move', shutil_mock)
 
     await stask._zip_align_apk(context, abs_to)
@@ -318,7 +318,7 @@ async def test_convert_dmg_to_tar_gz(context, monkeypatch, tmpdir):
     def fake_tmpdir():
         yield tmpdir
 
-    monkeypatch.setattr('signingscript.utils._execute_subprocess', execute_subprocess_mock)
+    monkeypatch.setattr('signingscript.utils.execute_subprocess', execute_subprocess_mock)
     monkeypatch.setattr('tempfile.TemporaryDirectory', fake_tmpdir)
 
     await stask._convert_dmg_to_tar_gz(context, dmg_path)

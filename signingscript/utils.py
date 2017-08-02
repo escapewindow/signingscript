@@ -131,7 +131,9 @@ def copy_to_dir(source, parent_dir, target=None):
         raise SigningServerError("Can't copy {} to {}!".format(source, target_path))
 
 
-async def _execute_subprocess(command, **kwargs):
+async def execute_subprocess(command, **kwargs):
+    """
+    """
     message = 'Running "{}"'.format(' '.join(command))
     if 'cwd' in kwargs:
         message += " in {}".format(kwargs['cwd'])
