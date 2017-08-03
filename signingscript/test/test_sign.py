@@ -147,6 +147,30 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
     ]
 
 
+# test_sign_signcode {{{1
+@pytest.mark.asyncio
+@pytest.mark.parametrize('filename,fmt,raises', ((
+    'foo.tar.gz', 'sha2signcode', True
+), (
+    'foo.zip', 'signcode', False
+)))
+async def test_sign_signcode(context, mocker, filename, fmt, raises):
+    files = ["x/foo.dll", "y/msvcblah.dll", "z/setup.exe", "ignore"]
+
+    async def fake_unzip(_, f):
+        assert f.endswith('.zip')
+        return files
+
+    mocker.patch.object(sign, '_extract_zipfile', new=fake_unzip)
+    mocker.patch.object(sign, 'sign_file', new=noop_async)
+    mocker.patch.object(sign, '_create_zipfile', new=noop_async)
+    if raises:
+        with pytest.raises(SigningScriptError):
+            await sign.sign_signcode(context, filename, fmt)
+    else:
+        await sign.sign_signcode(context, filename, fmt)
+
+
 # test_sign_widevine {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,fmt,raises', ((
