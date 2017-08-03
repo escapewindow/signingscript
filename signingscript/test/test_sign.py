@@ -12,7 +12,7 @@ from signingscript.script import get_default_config
 from signingscript.utils import get_hash, load_signing_server_config, mkdir, SigningServer
 import signingscript.sign as sign
 import signingscript.utils as utils
-from signingscript.test import tmpdir, die
+from signingscript.test import noop_async, tmpdir, die
 
 assert tmpdir  # silence flake8
 
@@ -147,7 +147,39 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
     ]
 
 
-# should_sign_windows {{{1
+# test_sign_widevine {{{1
+@pytest.mark.asyncio
+@pytest.mark.parametrize('filename,fmt,raises', ((
+    'foo.tar.gz', 'widevine', False
+), (
+    'foo.zip', 'widevine_blessed', False
+), (
+    'foo.unknown', 'widevine', True
+)))
+async def test_sign_widevine(context, mocker, filename, fmt, raises):
+    files = ["x/firefox", "y/plugin-container", "z/blah", "ignore"]
+
+    async def fake_unzip(_, f):
+        assert f.endswith('.zip')
+        return files
+
+    async def fake_untar(_, f, **kwargs):
+        assert f.endswith('.tar.gz')
+        return files
+
+    mocker.patch.object(sign, '_extract_tarfile', new=fake_untar)
+    mocker.patch.object(sign, '_extract_zipfile', new=fake_unzip)
+    mocker.patch.object(sign, 'sign_file', new=noop_async)
+    mocker.patch.object(sign, '_create_tarfile', new=noop_async)
+    mocker.patch.object(sign, '_create_zipfile', new=noop_async)
+    if raises:
+        with pytest.raises(SigningScriptError):
+            await sign.sign_widevine(context, filename, fmt)
+    else:
+        await sign.sign_widevine(context, filename, fmt)
+
+
+# _should_sign_windows {{{1
 @pytest.mark.parametrize('filenames,expected', ((
     ('firefox', 'libclearkey.dylib', 'D3DCompiler_42.dll', 'msvcblah.dll'), False
 ), (
