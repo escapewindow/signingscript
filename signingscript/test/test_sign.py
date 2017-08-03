@@ -12,7 +12,7 @@ from signingscript.script import get_default_config
 from signingscript.utils import get_hash, load_signing_server_config, mkdir, SigningServer
 import signingscript.sign as sign
 import signingscript.utils as utils
-from signingscript.test import noop_async, tmpdir, die
+from signingscript.test import noop_sync, noop_async, tmpdir, die
 
 assert tmpdir  # silence flake8
 
@@ -147,7 +147,54 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
     ]
 
 
-# test_sign_signcode {{{1
+# sign_file {{{1
+@pytest.mark.asyncio
+@pytest.mark.parametrize('to,expected', ((
+    None, 'from',
+), (
+    'to', 'to'
+)))
+async def test_sign_file(context, mocker, to, expected):
+    mocker.patch.object(sign, 'build_signtool_cmd', new=noop_sync)
+    mocker.patch.object(utils, 'execute_subprocess', new=noop_async)
+    assert await sign.sign_file(context, 'from', 'blah', to=to) == expected
+
+
+# sign_gpg {{{1
+@pytest.mark.asyncio
+async def test_sign_gpg(context, mocker):
+    mocker.patch.object(sign, 'sign_file', new=noop_async)
+    assert await sign.sign_gpg(context, 'from', 'blah') == ['from', 'from.asc']
+
+
+# sign_jar {{{1
+@pytest.mark.asyncio
+async def test_sign_jar(context, mocker):
+    counter = []
+
+    async def fake_zipalign(*args):
+        counter.append('1')
+
+    mocker.patch.object(sign, 'sign_file', new=noop_async)
+    mocker.patch.object(sign, 'zip_align_apk', new=fake_zipalign)
+    await sign.sign_jar(context, 'from', 'blah')
+    assert len(counter) == 1
+
+
+# sign_macapp {{{1
+@pytest.mark.asyncio
+@pytest.mark.parametrize('filename,expected', ((
+    'foo.dmg', 'foo.tar.gz',
+), (
+    'foo.tar.bz2', 'foo.tar.bz2',
+)))
+async def test_sign_macapp(context, mocker, filename, expected):
+    mocker.patch.object(sign, '_convert_dmg_to_tar_gz', new=noop_async)
+    mocker.patch.object(sign, 'sign_file', new=noop_async)
+    assert await sign.sign_macapp(context, filename, 'blah') == expected
+
+
+# sign_signcode {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,fmt,raises', ((
     'foo.tar.gz', 'sha2signcode', True
@@ -171,7 +218,7 @@ async def test_sign_signcode(context, mocker, filename, fmt, raises):
         await sign.sign_signcode(context, filename, fmt)
 
 
-# test_sign_widevine {{{1
+# sign_widevine {{{1
 @pytest.mark.asyncio
 @pytest.mark.parametrize('filename,fmt,raises', ((
     'foo.tar.gz', 'widevine', False
