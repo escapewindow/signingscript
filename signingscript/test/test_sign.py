@@ -134,7 +134,7 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
             "project:releng:signing:format:sha2signcode",
         ],
     }
-    context.config['cert'] = 'cert'
+    context.config['ssl_cert'] = 'cert'
     work_dir = context.config['work_dir']
     assert sign.build_signtool_cmd(context, from_, fmt, to=to) == [
         'signtool', "-v",
@@ -147,6 +147,17 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
     ]
 
 
+# should_sign_windows {{{1
+@pytest.mark.parametrize('filenames,expected', ((
+    ('firefox', 'libclearkey.dylib', 'D3DCompiler_42.dll', 'msvcblah.dll'), False
+), (
+    ('firefox.dll', 'foo.exe'), True
+)))
+def test_should_sign_windows(filenames, expected):
+    for f in filenames:
+        assert sign._should_sign_windows(f) == expected
+
+
 # _should_sign_widevine {{{1
 @pytest.mark.parametrize('filenames,expected', ((
     ('firefox', 'XUL', 'libclearkey.dylib'), 'widevine',
@@ -157,7 +168,7 @@ def test_build_signtool_cmd(context, signtool, from_, to, fmt):
 )))
 def test_should_sign_widevine(filenames, expected):
     for f in filenames:
-        assert sign._should_sign_widevine(f, 'widevine') == expected
+        assert sign._should_sign_widevine(f) == expected
 
 
 # log_shas {{{1
