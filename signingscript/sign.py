@@ -267,6 +267,7 @@ async def sign_widevine(context, orig_path, fmt):
     )
 
 
+# sign_widevine_zip {{{1
 async def sign_widevine_zip(context, orig_path, fmt):
     """Sign the internals of a zipfile with the widevine key.
 
@@ -313,6 +314,7 @@ async def sign_widevine_zip(context, orig_path, fmt):
     return orig_path
 
 
+# sign_widevine_tar {{{1
 async def sign_widevine_tar(context, orig_path, fmt):
     """Sign the internals of a tarfile with the widevine key.
 
@@ -338,14 +340,16 @@ async def sign_widevine_tar(context, orig_path, fmt):
     # rather than immediately after `sign_widevine`, to optimize task runtime
     # speed over disk space.
     tmp_dir = tempfile.mkdtemp(prefix="wvtar", dir=context.config['work_dir'])
-    # Get file list
-    all_files = await _extract_tarfile(
-        context, orig_path, compression, tmp_dir=tmp_dir
-    )
+    # Get file list. Don't extract unless we know we have files to sign
+    all_files = await _get_tarfile_files(orig_path, compression)
     files_to_sign = _should_sign_widevine(all_files)
     log.debug("Widevine files to sign: {}".format(files_to_sign))
     if files_to_sign:
         tasks = []
+        # Extract the tarfile
+        await _extract_tarfile(
+            context, orig_path, compression, tmp_dir=tmp_dir
+        )
         # Sign the appropriate inner files
         for from_, fmt in files_to_sign.items():
             tasks.append(asyncio.ensure_future(sign_file(context, from_, fmt)))
