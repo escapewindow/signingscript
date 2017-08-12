@@ -510,9 +510,7 @@ def _get_tarfile_compression(compression):
 
 # _get_tarfile_files {{{1
 async def _get_tarfile_files(from_, compression):
-    if compression is None:
-        ext = os.path.splitext(from_)[1]
-        compression = _get_tarfile_compression(ext)
+    compression = _get_tarfile_compression(compression)
     with tarfile.open(from_, mode='r:{}'.format(compression)) as t:
         files = t.getnames()
         return files
