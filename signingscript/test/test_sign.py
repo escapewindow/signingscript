@@ -420,14 +420,8 @@ async def test_zipfile_append_write(context):
     os.path.join(TEST_DATA_DIR, "test.tar.bz2"),
     "bz2"
 ), (
-    os.path.join(TEST_DATA_DIR, "test.tar.bz2"),
-    None
-), (
     os.path.join(TEST_DATA_DIR, "test.tar.gz"),
     "gz"
-), (
-    os.path.join(TEST_DATA_DIR, "test.tar.gz"),
-    None
 )))
 async def test_get_tarfile_files(path, compression):
     assert sorted(
