@@ -352,7 +352,9 @@ async def sign_widevine_tar(context, orig_path, fmt):
         )
         # Sign the appropriate inner files
         for from_, fmt in files_to_sign.items():
-            tasks.append(asyncio.ensure_future(sign_file(context, from_, fmt)))
+            tasks.append(asyncio.ensure_future(
+                sign_file(context, os.path.join(tmp_dir, from_), fmt)
+            ))
             all_files.append("{}.sig".format(from_))
         await raise_future_exceptions(tasks)
         # Append sig_files to the archive
