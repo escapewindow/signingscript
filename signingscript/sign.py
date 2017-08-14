@@ -267,6 +267,7 @@ async def sign_widevine(context, orig_path, fmt):
     )
 
 
+# sign_widevine_zip {{{1
 async def sign_widevine_zip(context, orig_path, fmt):
     """Sign the internals of a zipfile with the widevine key.
 
@@ -313,6 +314,7 @@ async def sign_widevine_zip(context, orig_path, fmt):
     return orig_path
 
 
+# sign_widevine_tar {{{1
 async def sign_widevine_tar(context, orig_path, fmt):
     """Sign the internals of a tarfile with the widevine key.
 
@@ -338,14 +340,15 @@ async def sign_widevine_tar(context, orig_path, fmt):
     # rather than immediately after `sign_widevine`, to optimize task runtime
     # speed over disk space.
     tmp_dir = tempfile.mkdtemp(prefix="wvtar", dir=context.config['work_dir'])
-    # Get file list
-    all_files = await _extract_tarfile(
-        context, orig_path, compression, tmp_dir=tmp_dir
-    )
-    files_to_sign = _get_widevine_signing_files(all_files)
+    all_files = await _get_tarfile_files(orig_path, compression)
+    files_to_sign = _get_widevine_signing_files(all_files, prefix=tmp_dir)
     log.debug("Widevine files to sign: {}".format(files_to_sign))
     if files_to_sign:
         tasks = []
+        # Extract the tarfile
+        await _extract_tarfile(
+            context, orig_path, compression, tmp_dir=tmp_dir
+        )
         # Sign the appropriate inner files
         for from_, fmt in files_to_sign.items():
             tasks.append(asyncio.ensure_future(sign_file(context, from_, fmt)))
@@ -375,7 +378,7 @@ def _should_sign_windows(filename):
 
 
 # _get_widevine_signing_files {{{1
-def _get_widevine_signing_files(file_list):
+def _get_widevine_signing_files(file_list, prefix=None):
     """Return a dict of path:signing_format for each path to be signed."""
     files = {}
     for filename in file_list:
@@ -388,6 +391,8 @@ def _get_widevine_signing_files(file_list):
         if fmt:
             log.debug("Found {} to sign {}".format(filename, fmt))
             if "{}.sig".format(filename) not in file_list:
+                if prefix:
+                    filename = os.path.join(prefix, filename)
                 files[filename] = fmt
             else:
                 log.debug("{} is already signed! Skipping...".format(filename))
@@ -506,9 +511,7 @@ def _get_tarfile_compression(compression):
 
 # _get_tarfile_files {{{1
 async def _get_tarfile_files(from_, compression):
-    if compression is None:
-        ext = os.path.splitext(from_)[1]
-        compression = _get_tarfile_compression(ext)
+    compression = _get_tarfile_compression(compression)
     with tarfile.open(from_, mode='r:{}'.format(compression)) as t:
         files = t.getnames()
         return files
