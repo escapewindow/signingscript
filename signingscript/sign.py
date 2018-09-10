@@ -6,6 +6,8 @@ import difflib
 import fnmatch
 import glob
 import logging
+import mardor
+from mardor.reader import MarReader
 import os
 import re
 import requests
@@ -704,6 +706,24 @@ async def sign_file_with_autograph(context, from_, fmt, to=None):
 
     with open(to, 'wb') as fout:
         fout.write(base64.b64decode(sign_resp[0]['signed_file']))
+
+    # Temporary hack to verify MAR files from Autograph
+    if fmt == "autograph_mar384":
+        # MarReader requires a file object. We could use StringIO here, but
+        # it's probably better not to keep whole MARs in memory any longer than necessary
+        with open(to, 'rb') as m:
+            with MarReader(m) as reader:
+                errors = reader.get_errors()
+                if errors:
+                    raise SigningScriptError(
+                        "Got errors when verifying MAR received from Autograph: {}".format(e for e in errors)
+                    )
+                for key in (mardor.mozilla.release1_sha384, mardor.mozilla.nightly1_sha384, mardor.mozilla.dep1_sha384,
+                            mardor.mozilla.release2_sha384, mardor.mozilla.nightly2_sha384, mardor.mozilla.dep2_sha384):
+                    if reader.verify(mardor.mozilla.dep1_sha384):
+                        break
+                else:
+                    raise SigningScriptError("Couldn't verify MAR with any known MAR signing key")
 
     log.info("autograph wrote signed_file %s to %s", from_, to)
     return to
