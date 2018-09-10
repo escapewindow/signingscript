@@ -199,20 +199,124 @@ async def test_sign_file_with_autograph(context, mocker, to, expected):
     Session_mock.return_value.__exit__ = mocker.Mock()
     mocker.patch('signingscript.sign.requests.Session', Session_mock, create=True)
 
+    mar_mock = mocker.MagicMock()
+    mar_mock.parse_stream.return_value = True
+    mocker.patch('mardor.reader.mar', mar_mock)
+
+    mar_reader_mock = mocker.MagicMock()
+    mar_reader_mock.get_errors.return_value = None
+    mar_reader_mock.verify.return_value = True
+
+    MarReader_mock = mocker.Mock()
+    MarReader_mock.return_value.__enter__ = mocker.Mock(return_value=mar_reader_mock)
+    MarReader_mock.return_value.__exit__ = mocker.Mock()
+    mocker.patch('signingscript.sign.MarReader', MarReader_mock)
+
     context.task = {
-        'scopes': ['project:releng:signing:cert:dep-signing', 'project:releng:signing:format:autograph_mar']
+        'scopes': ['project:releng:signing:cert:dep-signing', 'project:releng:signing:format:autograph_mar384']
     }
     context.signing_servers = {
         "project:releng:signing:cert:dep-signing": [
-            utils.SigningServer(*["https://autograph-hsm.dev.mozaws.net", "alice", "fs5wgcer9qj819kfptdlp8gm227ewxnzvsuj9ztycsx08hfhzu", ["autograph_mar"], "autograph"])
+            utils.SigningServer(*["https://autograph-hsm.dev.mozaws.net", "alice", "fs5wgcer9qj819kfptdlp8gm227ewxnzvsuj9ztycsx08hfhzu", ["autograph_mar384"], "autograph"])
         ]
     }
-    assert await sign.sign_file_with_autograph(context, 'from', 'autograph_mar', to=to) == expected
+    assert await sign.sign_file_with_autograph(context, 'from', 'autograph_mar384', to=to) == expected
     open_mock.assert_called()
     session_mock.post.assert_called_with(
         'https://autograph-hsm.dev.mozaws.net/sign/file',
         auth=mocker.ANY,
         json=[{'input': b'MHhkZWFkYmVlZg=='}])
+    mar_reader_mock.get_errors.assert_called()
+    mar_reader_mock.verify.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_sign_file_with_autograph_bad_mar_response(context, mocker):
+    open_mock = mocker.mock_open(read_data=b'0xdeadbeef')
+    mocker.patch('builtins.open', open_mock, create=True)
+
+    session_mock = mocker.MagicMock()
+    session_mock.post.return_value.json.return_value = [{'signed_file': 'bW96aWxsYQ=='}]
+
+    Session_mock = mocker.Mock()
+    Session_mock.return_value.__enter__ = mocker.Mock(return_value=session_mock)
+    Session_mock.return_value.__exit__ = mocker.Mock()
+    mocker.patch('signingscript.sign.requests.Session', Session_mock, create=True)
+
+    mar_mock = mocker.MagicMock()
+    mar_mock.parse_stream.return_value = True
+    mocker.patch('mardor.reader.mar', mar_mock)
+
+    mar_reader_mock = mocker.MagicMock()
+    mar_reader_mock.get_errors.return_value = ["a", "b", "c"]
+    mar_reader_mock.verify.return_value = True
+
+    MarReader_mock = mocker.Mock()
+    MarReader_mock.return_value.__enter__ = mocker.Mock(return_value=mar_reader_mock)
+    MarReader_mock.return_value.__exit__ = mocker.Mock()
+    mocker.patch('signingscript.sign.MarReader', MarReader_mock)
+
+    context.task = {
+        'scopes': ['project:releng:signing:cert:dep-signing', 'project:releng:signing:format:autograph_mar384']
+    }
+    context.signing_servers = {
+        "project:releng:signing:cert:dep-signing": [
+            utils.SigningServer(*["https://autograph-hsm.dev.mozaws.net", "alice", "fs5wgcer9qj819kfptdlp8gm227ewxnzvsuj9ztycsx08hfhzu", ["autograph_mar384"], "autograph"])
+        ]
+    }
+    with pytest.raises(SigningScriptError):
+        await sign.sign_file_with_autograph(context, 'from', 'autograph_mar384', to='to')
+    open_mock.assert_called()
+    session_mock.post.assert_called_with(
+        'https://autograph-hsm.dev.mozaws.net/sign/file',
+        auth=mocker.ANY,
+        json=[{'input': b'MHhkZWFkYmVlZg=='}])
+    mar_reader_mock.get_errors.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_sign_file_with_autograph_bad_mar_signature(context, mocker):
+    open_mock = mocker.mock_open(read_data=b'0xdeadbeef')
+    mocker.patch('builtins.open', open_mock, create=True)
+
+    session_mock = mocker.MagicMock()
+    session_mock.post.return_value.json.return_value = [{'signed_file': 'bW96aWxsYQ=='}]
+
+    Session_mock = mocker.Mock()
+    Session_mock.return_value.__enter__ = mocker.Mock(return_value=session_mock)
+    Session_mock.return_value.__exit__ = mocker.Mock()
+    mocker.patch('signingscript.sign.requests.Session', Session_mock, create=True)
+
+    mar_mock = mocker.MagicMock()
+    mar_mock.parse_stream.return_value = True
+    mocker.patch('mardor.reader.mar', mar_mock)
+
+    mar_reader_mock = mocker.MagicMock()
+    mar_reader_mock.get_errors.return_value = None
+    mar_reader_mock.verify.return_value = False
+
+    MarReader_mock = mocker.Mock()
+    MarReader_mock.return_value.__enter__ = mocker.Mock(return_value=mar_reader_mock)
+    MarReader_mock.return_value.__exit__ = mocker.Mock()
+    mocker.patch('signingscript.sign.MarReader', MarReader_mock)
+
+    context.task = {
+        'scopes': ['project:releng:signing:cert:dep-signing', 'project:releng:signing:format:autograph_mar384']
+    }
+    context.signing_servers = {
+        "project:releng:signing:cert:dep-signing": [
+            utils.SigningServer(*["https://autograph-hsm.dev.mozaws.net", "alice", "fs5wgcer9qj819kfptdlp8gm227ewxnzvsuj9ztycsx08hfhzu", ["autograph_mar384"], "autograph"])
+        ]
+    }
+    with pytest.raises(SigningScriptError):
+        await sign.sign_file_with_autograph(context, 'from', 'autograph_mar384', to='to')
+    open_mock.assert_called()
+    session_mock.post.assert_called_with(
+        'https://autograph-hsm.dev.mozaws.net/sign/file',
+        auth=mocker.ANY,
+        json=[{'input': b'MHhkZWFkYmVlZg=='}])
+    mar_reader_mock.get_errors.assert_called()
+    mar_reader_mock.verify.assert_called()
 
 
 @pytest.mark.asyncio
