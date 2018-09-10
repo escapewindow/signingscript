@@ -709,6 +709,7 @@ async def sign_file_with_autograph(context, from_, fmt, to=None):
 
     # Temporary hack to verify MAR files from Autograph
     if fmt == "autograph_mar384":
+        log.debug("Verifying MAR returned by Autograph")
         # MarReader requires a file object. We could use StringIO here, but
         # it's probably better not to keep whole MARs in memory any longer than necessary
         with open(to, 'rb') as m:
