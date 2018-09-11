@@ -69,7 +69,7 @@ def _craft_aiohttp_connector(context):
     kwargs = {}
     if context.config.get('ssl_cert'):
         sslcontext = ssl.create_default_context(cafile=context.config['ssl_cert'])
-        kwargs['ssl_context'] = sslcontext
+        kwargs['ssl'] = sslcontext
     return aiohttp.TCPConnector(**kwargs)
 
 
