@@ -655,6 +655,25 @@ async def _create_tarfile(context, to, files, compression, tmp_dir=None):
         raise SigningScriptError(e)
 
 
+# sign_file_with_autograph {{{1
+def _verify_autograph_mar(path):
+    log.debug("Verifying MAR returned by Autograph")
+    # MarReader requires a file object. We could use StringIO here, but
+    # it's probably better not to keep whole MARs in memory any longer than necessary
+    with open(path, 'rb') as m:
+        with MarReader(m) as reader:
+            errors = reader.get_errors()
+            if errors:
+                raise SigningScriptError(
+                    "Got errors when verifying MAR received from Autograph: {}".format(e for e in errors)
+                )
+            for key in (mardor.mozilla.release1_sha384, mardor.mozilla.nightly1_sha384, mardor.mozilla.dep1_sha384,
+                        mardor.mozilla.release2_sha384, mardor.mozilla.nightly2_sha384, mardor.mozilla.dep2_sha384):
+                if reader.verify(key):
+                    return
+    raise SigningScriptError("Couldn't verify MAR with any known MAR signing key")
+
+
 async def sign_file_with_autograph(context, from_, fmt, to=None):
     """Signs a file with autograph and writes the result to arg `to` or `from_` if `to` is None.
 
@@ -709,22 +728,7 @@ async def sign_file_with_autograph(context, from_, fmt, to=None):
 
     # Temporary hack to verify MAR files from Autograph
     if 'autograph' in fmt:
-        log.debug("Verifying MAR returned by Autograph")
-        # MarReader requires a file object. We could use StringIO here, but
-        # it's probably better not to keep whole MARs in memory any longer than necessary
-        with open(to, 'rb') as m:
-            with MarReader(m) as reader:
-                errors = reader.get_errors()
-                if errors:
-                    raise SigningScriptError(
-                        "Got errors when verifying MAR received from Autograph: {}".format(e for e in errors)
-                    )
-                for key in (mardor.mozilla.release1_sha384, mardor.mozilla.nightly1_sha384, mardor.mozilla.dep1_sha384,
-                            mardor.mozilla.release2_sha384, mardor.mozilla.nightly2_sha384, mardor.mozilla.dep2_sha384):
-                    if reader.verify(key):
-                        break
-                else:
-                    raise SigningScriptError("Couldn't verify MAR with any known MAR signing key")
+        _verify_autograph_mar(to)
 
     log.info("autograph wrote signed_file %s to %s", from_, to)
     return to
